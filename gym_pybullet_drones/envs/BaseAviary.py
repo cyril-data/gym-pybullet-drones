@@ -325,6 +325,7 @@ class BaseAviary(gym.Env):
             for i in range(4):
                 self.gui_input[i] = p.readUserDebugParameter(int(self.SLIDERS[i]), physicsClientId=self.CLIENT)
             clipped_action = np.tile(self.gui_input, (self.NUM_DRONES, 1))
+            print("self.USE_GUI_RPM:", self.USE_GUI_RPM)
             if self.step_counter%(self.PYB_FREQ/2) == 0:
                 self.GUI_INPUT_TEXT = [p.addUserDebugText("Using GUI RPM",
                                                           textPosition=[0, 0, 0],
@@ -338,9 +339,16 @@ class BaseAviary(gym.Env):
                                                           ) for i in range(self.NUM_DRONES)]
         #### Save, preprocess, and clip the action to the max. RPM #
         else:
-            self._saveLastAction(action)
+            try : 
+                self._saveLastAction( self._preprocessAction(action))
+            except:
+                print('error')
+                print('action',action)
+                print('self._preprocessAction(action)',self._preprocessAction(action))
+
             clipped_action = np.reshape(self._preprocessAction(action), (self.NUM_DRONES, 4))
         #### Repeat for as many as the aggregate physics steps #####
+
         for _ in range(self.PYB_STEPS_PER_CTRL):
             #### Update and store the drones kinematic info for certain
             #### Between aggregate steps for certain types of update ###

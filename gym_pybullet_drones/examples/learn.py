@@ -25,11 +25,6 @@ from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.envs.single_agent_rl.HoverAviary import HoverAviary
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
-DEFAULT_GUI = True
-DEFAULT_RECORD_VIDEO = False
-DEFAULT_OUTPUT_FOLDER = 'results'
-DEFAULT_COLAB = False
-
 # def run(output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO):
 
 #     #### Check the environment's spaces ########################
@@ -42,6 +37,7 @@ DEFAULT_COLAB = False
 #                 env,
 #                 verbose=1
 #                 )
+                                  
 #     model.learn(total_timesteps=10000) # Typically not enough
 
 #     #### Show (and record a video of) the model's performance ##
@@ -139,8 +135,6 @@ from gym_pybullet_drones.envs.single_agent_rl.FlyThruGateAviary import FlyThruGa
 # from gym_pybullet_drones.envs.single_agent_rl.TuneAviary import TuneAviary
 from gym_pybullet_drones.envs.single_agent_rl.BaseSingleAgentAviary import ActionType, ObservationType
 
-import shared_constants
-
 EPISODE_REWARD_THRESHOLD = -0 # Upperbound: rewards are always negative, but non-zero
 """float: Reward threshold to halt the script."""
 
@@ -151,6 +145,14 @@ DEFAULT_ACT = ActionType('one_d_rpm')
 DEFAULT_CPU = 1
 DEFAULT_STEPS = 35000
 DEFAULT_OUTPUT_FOLDER = 'results'
+DEFAULT_INTEREVAL = 5000 
+
+DEFAULT_GUI = True
+DEFAULT_RECORD_VIDEO = False
+DEFAULT_OUTPUT_FOLDER = 'results'
+DEFAULT_COLAB = False
+DEFAULT_TRAIN = True
+
 
 def run(
     env=DEFAULT_ENV,
@@ -159,8 +161,17 @@ def run(
     act=DEFAULT_ACT,
     cpu=DEFAULT_CPU,
     steps=DEFAULT_STEPS,
-    output_folder=DEFAULT_OUTPUT_FOLDER
+    output_folder=DEFAULT_OUTPUT_FOLDER,
+    gui=DEFAULT_GUI, 
+    plot=True, 
+    colab=DEFAULT_COLAB, 
+    record_video=DEFAULT_RECORD_VIDEO,
+    intervallog=DEFAULT_INTEREVAL,
+    eval=False, 
+    checkpoint=None,
 ):
+
+
 
     #### Save directory ########################################
     filename = os.path.join(output_folder, 'save-'+env+'-'+algo+'-'+obs.value+'-'+act.value+'-'+datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
@@ -176,6 +187,7 @@ def run(
     #### Warning ###############################################
     if env == 'tune' and act != ActionType.TUN:
         print("\n\n\n[WARNING] TuneAviary is intended for use with ActionType.TUN\n\n\n")
+
     if act == ActionType.ONE_D_RPM or act == ActionType.ONE_D_DYN or act == ActionType.ONE_D_PID:
         print("\n\n\n[WARNING] Simplified 1D problem for debugging purposes\n\n\n")
     #### Errors ################################################
@@ -193,40 +205,55 @@ def run(
     # exit()
 
     env_name = env+"-aviary-v0"
-    sa_env_kwargs = dict(aggregate_phy_steps=shared_constants.AGGR_PHY_STEPS, obs=obs, act=act)
-    # train_env = gym.make(env_name, aggregate_phy_steps=shared_constants.AGGR_PHY_STEPS, obs=obs, act=act) # single environment instead of a vectorized one    
-    # if env_name == "takeoff-aviary-v0":
-    #     train_env = make_vec_env(TakeoffAviary,
-    #                              env_kwargs=sa_env_kwargs,
-    #                              n_envs=cpu,
-    #                              seed=0
-    #                              )
-    if env_name == "hover-aviary-v0":
-        train_env = make_vec_env(HoverAviary,
+    # sa_env_kwargs = dict(aggregate_phy_steps=shared_constants.AGGR_PHY_STEPS, obs=obs, act=act)
+    # =>  "aggregate_phy_steps" is not recognize anymore with gymnasium
+
+    # sa_env_kwargs = dict(obs=obs, act=act)
+    sa_env_kwargs = dict(obs=obs, act=act)
+    print("*"*80)
+    print("obs", obs)
+    print("act", act)
+
+    print("steps", steps)
+    print("*"*80)
+
+
+    if env_name == "takeoff-aviary-v0":
+        train_env = make_vec_env(TakeoffAviary,
                                  env_kwargs=sa_env_kwargs,
                                  n_envs=cpu,
                                  seed=0
                                  )
+    if env_name == "hover-aviary-v0":
+        train_env = make_vec_env(env_name,
+                                 env_kwargs=sa_env_kwargs,
+                                 n_envs=cpu,
+                                 seed=0
+                                 )
+        
     if env_name == "flythrugate-aviary-v0":
         train_env = make_vec_env(FlyThruGateAviary,
                                  env_kwargs=sa_env_kwargs,
                                  n_envs=cpu,
                                  seed=0
                                  )
-    # if env_name == "tune-aviary-v0":
-    #     train_env = make_vec_env(TuneAviary,
-    #                              env_kwargs=sa_env_kwargs,
-    #                              n_envs=cpu,
-    #                              seed=0
-    #                              )
+    if env_name == "tune-aviary-v0":
+        train_env = make_vec_env(TuneAviary,
+                                 env_kwargs=sa_env_kwargs,
+                                 n_envs=cpu,
+                                 seed=0
+                                 )
     print("[INFO] Action space:", train_env.action_space)
     print("[INFO] Observation space:", train_env.observation_space)
     # check_env(train_env, warn=True, skip_render_check=True)
     
-    #### On-policy algorithms ##################################
+    # #### On-policy algorithms ##################################
+    # Don't use for the moment (return error with ppo)
     onpolicy_kwargs = dict(activation_fn=torch.nn.ReLU,
                            net_arch=[512, 512, dict(vf=[256, 128], pi=[256, 128])]
                            ) # or None
+    
+
     if algo == 'a2c':
         model = A2C(a2cppoMlpPolicy,
                     train_env,
@@ -242,15 +269,10 @@ def run(
     if algo == 'ppo':
         model = PPO(a2cppoMlpPolicy,
                     train_env,
-                    policy_kwargs=onpolicy_kwargs,
+                    # policy_kwargs=onpolicy_kwargs,
                     tensorboard_log=filename+'/tb/',
                     verbose=1
-                    ) if obs == ObservationType.KIN else PPO(a2cppoCnnPolicy,
-                                                                  train_env,
-                                                                  policy_kwargs=onpolicy_kwargs,
-                                                                  tensorboard_log=filename+'/tb/',
-                                                                  verbose=1
-                                                                  )
+                    )
 
     #### Off-policy algorithms #################################
     offpolicy_kwargs = dict(activation_fn=torch.nn.ReLU,
@@ -293,13 +315,19 @@ def run(
                                                                 verbose=1
                                                                 )
 
+
+    if checkpoint is not None : 
+        print("checkpoint", type(checkpoint), checkpoint)
+        model.load(checkpoint)
+
     #### Create eveluation environment #########################
     if obs == ObservationType.KIN: 
-        eval_env = gym.make(env_name,
-                            aggregate_phy_steps=shared_constants.AGGR_PHY_STEPS,
-                            obs=obs,
-                            act=act
-                            )
+        eval_env = make_vec_env(env_name,
+                        env_kwargs=sa_env_kwargs,
+                        n_envs=1,
+                        # seed=0
+                        )
+
     elif obs == ObservationType.RGB:
         # if env_name == "takeoff-aviary-v0": 
         #     eval_env = make_vec_env(TakeoffAviary,
@@ -311,20 +339,23 @@ def run(
             eval_env = make_vec_env(HoverAviary,
                                     env_kwargs=sa_env_kwargs,
                                     n_envs=1,
-                                    seed=0
+                                    # seed=0
                                     )
+            
+
+            
         if env_name == "flythrugate-aviary-v0": 
             eval_env = make_vec_env(FlyThruGateAviary,
                                     env_kwargs=sa_env_kwargs,
                                     n_envs=1,
                                     seed=0
                                     )
-        # if env_name == "tune-aviary-v0": 
-        #     eval_env = make_vec_env(TuneAviary,
-        #                             env_kwargs=sa_env_kwargs,
-        #                             n_envs=1,
-        #                             seed=0
-        #                             )
+        if env_name == "tune-aviary-v0": 
+            eval_env = make_vec_env(TuneAviary,
+                                    env_kwargs=sa_env_kwargs,
+                                    n_envs=1,
+                                    seed=0
+                                    )
         eval_env = VecTransposeImage(eval_env)
 
     #### Train the model #######################################
@@ -332,28 +363,79 @@ def run(
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=EPISODE_REWARD_THRESHOLD,
                                                      verbose=1
                                                      )
+    
     eval_callback = EvalCallback(eval_env,
                                  callback_on_new_best=callback_on_best,
                                  verbose=1,
                                  best_model_save_path=filename+'/',
                                  log_path=filename+'/',
-                                 eval_freq=int(2000/cpu),
+                                 eval_freq= max(int(intervallog // cpu), 1), #  int(2000/cpu),
                                  deterministic=True,
                                  render=False
                                  )
-    model.learn(total_timesteps=steps, #int(1e12),
-                callback=eval_callback,
-                log_interval=100,
-                )
+    
+    print("eval", eval)
+    if not eval : 
+        start_time = time.time()
+        model.learn(total_timesteps=steps, #int(1e12),
+                    callback=eval_callback,
+                    # log_interval=100,
+                    )
+        total_time_multi = time.time() - start_time
+        print(
+            f"Took {total_time_multi:.2f}s for {cpu} multiprocessed environement - {steps / total_time_multi:.2f} FPS"
+        )
 
-    #### Save the model ########################################
-    model.save(filename+'/success_model.zip')
-    print(filename)
+        #### Save the model ########################################
+        model.save(filename+'/success_model.zip')
+        print(filename)
 
-    #### Print training progression ############################
-    with np.load(filename+'/evaluations.npz') as data:
-        for j in range(data['timesteps'].shape[0]):
-            print(str(data['timesteps'][j])+","+str(data['results'][j][0]))
+        #### Print training progression ############################
+        with np.load(filename+'/evaluations.npz') as data:
+            for j in range(data['timesteps'].shape[0]):
+                print(str(data['timesteps'][j])+","+str(data['results'][j][0]))
+
+
+
+
+    #### Show (and record a video of) the model's performance ##
+    env = HoverAviary(gui=gui,
+                      record=record_video,
+                      obs=obs,
+                      act=act,
+                     )
+    
+
+    logger = Logger(logging_freq_hz=int(env.CTRL_FREQ),
+                    num_drones=1,
+                    output_folder=output_folder,
+                    colab=colab
+                    )
+    obs, info = env.reset(seed=42, options={})
+    start = time.time()
+    for i in range(3*env.CTRL_FREQ):
+        action, _states = model.predict(obs,
+                                        deterministic=True
+                                        )
+        obs, reward, terminated, truncated, info = env.step(action)
+        logger.log(drone=0,
+                   timestamp=i/env.CTRL_FREQ,
+                   state=np.hstack([obs[0:3], np.zeros(4), obs[3:15],  np.resize(action, (4))]),
+                   control=np.zeros(12)
+                   )
+        env.render()
+        print(terminated)
+        sync(i, start, env.CTRL_TIMESTEP)
+        if terminated:
+            obs = env.reset(seed=42, options={})
+    env.close()
+
+    if plot:
+        logger.plot()
+
+
+
+
 
 
 if __name__ == "__main__":
@@ -366,6 +448,10 @@ if __name__ == "__main__":
     parser.add_argument('--cpu',        default=DEFAULT_CPU,          type=int,                                                                  help='Number of training environments (default: 1)', metavar='')        
     parser.add_argument('--steps',        default=DEFAULT_STEPS,          type=int,                                                                  help='Number of training time steps (default: 35000)', metavar='')        
     parser.add_argument('--output_folder',     default=DEFAULT_OUTPUT_FOLDER, type=str,           help='Folder where to save logs (default: "results")', metavar='')
+    parser.add_argument('--intervallog',     default=DEFAULT_INTEREVAL, type=int,           help='log interval for evaluation', metavar='')
+    parser.add_argument("--eval", action="store_true", help="eval model without training")
+    parser.add_argument('--checkpoint',     default=None, type=str,           help='load checkpoint model (without .zip extention) ', metavar='')
+
     ARGS = parser.parse_args()
 
     run(**vars(ARGS))

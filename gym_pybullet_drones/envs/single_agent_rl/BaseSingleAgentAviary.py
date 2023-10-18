@@ -168,6 +168,8 @@ class BaseSingleAgentAviary(BaseAviary):
             commanded to the 4 motors of each drone.
 
         """
+
+        # print("in _preprocessAction", self.ACT_TYPE , self.HOVER_RPM )
         if self.ACT_TYPE == ActionType.RPM:
             return np.array(self.HOVER_RPM * (1+0.05*action))
         elif self.ACT_TYPE == ActionType.PID:
