@@ -37,7 +37,7 @@ from gym_pybullet_drones.utils.utils import sync, str2bool
 #                 env,
 #                 verbose=1
 #                 )
-                                  
+
 #     model.learn(total_timesteps=10000) # Typically not enough
 
 #     #### Show (and record a video of) the model's performance ##
@@ -113,7 +113,7 @@ import numpy as np
 import gymnasium as gym
 import torch
 from stable_baselines3.common.env_checker import check_env
-from stable_baselines3.common.env_util import make_vec_env 
+from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecTransposeImage
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3 import A2C
@@ -135,7 +135,8 @@ from gym_pybullet_drones.envs.single_agent_rl.FlyThruGateAviary import FlyThruGa
 # from gym_pybullet_drones.envs.single_agent_rl.TuneAviary import TuneAviary
 from gym_pybullet_drones.envs.single_agent_rl.BaseSingleAgentAviary import ActionType, ObservationType
 
-EPISODE_REWARD_THRESHOLD = -0 # Upperbound: rewards are always negative, but non-zero
+# Upperbound: rewards are always negative, but non-zero
+EPISODE_REWARD_THRESHOLD = -0
 """float: Reward threshold to halt the script."""
 
 DEFAULT_ENV = 'hover'
@@ -145,7 +146,7 @@ DEFAULT_ACT = ActionType('one_d_rpm')
 DEFAULT_CPU = 1
 DEFAULT_STEPS = 35000
 DEFAULT_OUTPUT_FOLDER = 'results'
-DEFAULT_INTEREVAL = 5000 
+DEFAULT_INTEREVAL = 5000
 
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = False
@@ -162,42 +163,45 @@ def run(
     cpu=DEFAULT_CPU,
     steps=DEFAULT_STEPS,
     output_folder=DEFAULT_OUTPUT_FOLDER,
-    gui=DEFAULT_GUI, 
-    plot=True, 
-    colab=DEFAULT_COLAB, 
+    gui=DEFAULT_GUI,
+    plot=True,
+    colab=DEFAULT_COLAB,
     record_video=DEFAULT_RECORD_VIDEO,
     intervallog=DEFAULT_INTEREVAL,
-    eval=False, 
+    eval=False,
     checkpoint=None,
 ):
 
-
-
     #### Save directory ########################################
-    filename = os.path.join(output_folder, 'save-'+env+'-'+algo+'-'+obs.value+'-'+act.value+'-'+datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
+    filename = os.path.join(output_folder, 'save-'+env+'-'+algo+'-'+obs.value +
+                            '-'+act.value+'-'+datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
     if not os.path.exists(filename):
         os.makedirs(filename+'/')
 
     #### Print out current git commit hash #####################
     if (platform == "linux" or platform == "darwin") and ('GITHUB_ACTIONS' not in os.environ.keys()):
-        git_commit = subprocess.check_output(["git", "describe", "--tags"]).strip()
+        git_commit = subprocess.check_output(
+            ["git", "describe", "--tags"]).strip()
         with open(filename+'/git_commit.txt', 'w+') as f:
             f.write(str(git_commit))
 
     #### Warning ###############################################
     if env == 'tune' and act != ActionType.TUN:
-        print("\n\n\n[WARNING] TuneAviary is intended for use with ActionType.TUN\n\n\n")
+        print(
+            "\n\n\n[WARNING] TuneAviary is intended for use with ActionType.TUN\n\n\n")
 
     if act == ActionType.ONE_D_RPM or act == ActionType.ONE_D_DYN or act == ActionType.ONE_D_PID:
-        print("\n\n\n[WARNING] Simplified 1D problem for debugging purposes\n\n\n")
+        print(
+            "\n\n\n[WARNING] Simplified 1D problem for debugging purposes\n\n\n")
     #### Errors ################################################
-        if not env in ['takeoff', 'hover']: 
-            print("[ERROR] 1D action space is only compatible with Takeoff and HoverAviary")
+        if not env in ['takeoff', 'hover']:
+            print(
+                "[ERROR] 1D action space is only compatible with Takeoff and HoverAviary")
             exit()
-    if act == ActionType.TUN and env != 'tune' :
+    if act == ActionType.TUN and env != 'tune':
         print("[ERROR] ActionType.TUN is only compatible with TuneAviary")
         exit()
-    if algo in ['sac', 'td3', 'ddpg'] and cpu!=1: 
+    if algo in ['sac', 'td3', 'ddpg'] and cpu != 1:
         print("[ERROR] The selected algorithm does not support multiple environments")
         exit()
 
@@ -217,7 +221,6 @@ def run(
     print("steps", steps)
     print("*"*80)
 
-
     if env_name == "takeoff-aviary-v0":
         train_env = make_vec_env(TakeoffAviary,
                                  env_kwargs=sa_env_kwargs,
@@ -230,7 +233,7 @@ def run(
                                  n_envs=cpu,
                                  seed=0
                                  )
-        
+
     if env_name == "flythrugate-aviary-v0":
         train_env = make_vec_env(FlyThruGateAviary,
                                  env_kwargs=sa_env_kwargs,
@@ -246,13 +249,15 @@ def run(
     print("[INFO] Action space:", train_env.action_space)
     print("[INFO] Observation space:", train_env.observation_space)
     # check_env(train_env, warn=True, skip_render_check=True)
-    
+
     # #### On-policy algorithms ##################################
     # Don't use for the moment (return error with ppo)
+    # onpolicy_kwargs = dict(activation_fn=torch.nn.ReLU,
+    #                        net_arch=[512, 512, dict(vf=[256, 128], pi=[256, 128])]
+    #                        ) # or None
     onpolicy_kwargs = dict(activation_fn=torch.nn.ReLU,
-                           net_arch=[512, 512, dict(vf=[256, 128], pi=[256, 128])]
-                           ) # or None
-    
+                           net_arch=[512, 512, 256, 128]
+                           )  # or None
 
     if algo == 'a2c':
         model = A2C(a2cppoMlpPolicy,
@@ -261,15 +266,15 @@ def run(
                     tensorboard_log=filename+'/tb/',
                     verbose=1
                     ) if obs == ObservationType.KIN else A2C(a2cppoCnnPolicy,
-                                                                  train_env,
-                                                                  policy_kwargs=onpolicy_kwargs,
-                                                                  tensorboard_log=filename+'/tb/',
-                                                                  verbose=1
-                                                                  )
+                                                             train_env,
+                                                             policy_kwargs=onpolicy_kwargs,
+                                                             tensorboard_log=filename+'/tb/',
+                                                             verbose=1
+                                                             )
     if algo == 'ppo':
         model = PPO(a2cppoMlpPolicy,
                     train_env,
-                    # policy_kwargs=onpolicy_kwargs,
+                    policy_kwargs=onpolicy_kwargs,
                     tensorboard_log=filename+'/tb/',
                     verbose=1
                     )
@@ -277,80 +282,77 @@ def run(
     #### Off-policy algorithms #################################
     offpolicy_kwargs = dict(activation_fn=torch.nn.ReLU,
                             net_arch=[512, 512, 256, 128]
-                            ) # or None # or dict(net_arch=dict(qf=[256, 128, 64, 32], pi=[256, 128, 64, 32]))
+                            )  # or None # or dict(net_arch=dict(qf=[256, 128, 64, 32], pi=[256, 128, 64, 32]))
     if algo == 'sac':
         model = SAC(sacMlpPolicy,
                     train_env,
                     policy_kwargs=offpolicy_kwargs,
                     tensorboard_log=filename+'/tb/',
                     verbose=1
-                    ) if obs==ObservationType.KIN else SAC(sacCnnPolicy,
-                                                                train_env,
-                                                                policy_kwargs=offpolicy_kwargs,
-                                                                tensorboard_log=filename+'/tb/',
-                                                                verbose=1
-                                                                )
+                    ) if obs == ObservationType.KIN else SAC(sacCnnPolicy,
+                                                             train_env,
+                                                             policy_kwargs=offpolicy_kwargs,
+                                                             tensorboard_log=filename+'/tb/',
+                                                             verbose=1
+                                                             )
     if algo == 'td3':
         model = TD3(td3ddpgMlpPolicy,
                     train_env,
                     policy_kwargs=offpolicy_kwargs,
                     tensorboard_log=filename+'/tb/',
                     verbose=1
-                    ) if obs==ObservationType.KIN else TD3(td3ddpgCnnPolicy,
-                                                                train_env,
-                                                                policy_kwargs=offpolicy_kwargs,
-                                                                tensorboard_log=filename+'/tb/',
-                                                                verbose=1
-                                                                )
+                    ) if obs == ObservationType.KIN else TD3(td3ddpgCnnPolicy,
+                                                             train_env,
+                                                             policy_kwargs=offpolicy_kwargs,
+                                                             tensorboard_log=filename+'/tb/',
+                                                             verbose=1
+                                                             )
     if algo == 'ddpg':
         model = DDPG(td3ddpgMlpPolicy,
-                    train_env,
-                    policy_kwargs=offpolicy_kwargs,
-                    tensorboard_log=filename+'/tb/',
-                    verbose=1
-                    ) if obs==ObservationType.KIN else DDPG(td3ddpgCnnPolicy,
-                                                                train_env,
-                                                                policy_kwargs=offpolicy_kwargs,
-                                                                tensorboard_log=filename+'/tb/',
-                                                                verbose=1
-                                                                )
+                     train_env,
+                     policy_kwargs=offpolicy_kwargs,
+                     tensorboard_log=filename+'/tb/',
+                     verbose=1
+                     ) if obs == ObservationType.KIN else DDPG(td3ddpgCnnPolicy,
+                                                               train_env,
+                                                               policy_kwargs=offpolicy_kwargs,
+                                                               tensorboard_log=filename+'/tb/',
+                                                               verbose=1
+                                                               )
 
-
-    if checkpoint is not None : 
+    if checkpoint is not None:
         print("checkpoint", type(checkpoint), checkpoint)
         model.load(checkpoint)
 
     #### Create eveluation environment #########################
-    if obs == ObservationType.KIN: 
+    if obs == ObservationType.KIN:
         eval_env = make_vec_env(env_name,
-                        env_kwargs=sa_env_kwargs,
-                        n_envs=1,
-                        # seed=0
-                        )
+                                env_kwargs=sa_env_kwargs,
+                                n_envs=1,
+                                # seed=0
+                                )
 
     elif obs == ObservationType.RGB:
-        # if env_name == "takeoff-aviary-v0": 
+        # if env_name == "takeoff-aviary-v0":
         #     eval_env = make_vec_env(TakeoffAviary,
         #                             env_kwargs=sa_env_kwargs,
         #                             n_envs=1,
         #                             seed=0
         #                             )
-        if env_name == "hover-aviary-v0": 
+        if env_name == "hover-aviary-v0":
             eval_env = make_vec_env(HoverAviary,
                                     env_kwargs=sa_env_kwargs,
                                     n_envs=1,
                                     # seed=0
                                     )
-            
 
-            
-        if env_name == "flythrugate-aviary-v0": 
+        if env_name == "flythrugate-aviary-v0":
             eval_env = make_vec_env(FlyThruGateAviary,
                                     env_kwargs=sa_env_kwargs,
                                     n_envs=1,
                                     seed=0
                                     )
-        if env_name == "tune-aviary-v0": 
+        if env_name == "tune-aviary-v0":
             eval_env = make_vec_env(TuneAviary,
                                     env_kwargs=sa_env_kwargs,
                                     n_envs=1,
@@ -363,21 +365,22 @@ def run(
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=EPISODE_REWARD_THRESHOLD,
                                                      verbose=1
                                                      )
-    
+
     eval_callback = EvalCallback(eval_env,
                                  callback_on_new_best=callback_on_best,
                                  verbose=1,
                                  best_model_save_path=filename+'/',
                                  log_path=filename+'/',
-                                 eval_freq= max(int(intervallog // cpu), 1), #  int(2000/cpu),
+                                 # int(2000/cpu),
+                                 eval_freq=max(int(intervallog // cpu), 1),
                                  deterministic=True,
                                  render=False
                                  )
-    
+
     print("eval", eval)
-    if not eval : 
+    if not eval:
         start_time = time.time()
-        model.learn(total_timesteps=steps, #int(1e12),
+        model.learn(total_timesteps=steps,  # int(1e12),
                     callback=eval_callback,
                     # log_interval=100,
                     )
@@ -395,16 +398,12 @@ def run(
             for j in range(data['timesteps'].shape[0]):
                 print(str(data['timesteps'][j])+","+str(data['results'][j][0]))
 
-
-
-
     #### Show (and record a video of) the model's performance ##
     env = HoverAviary(gui=gui,
                       record=record_video,
                       obs=obs,
                       act=act,
-                     )
-    
+                      )
 
     logger = Logger(logging_freq_hz=int(env.CTRL_FREQ),
                     num_drones=1,
@@ -420,7 +419,8 @@ def run(
         obs, reward, terminated, truncated, info = env.step(action)
         logger.log(drone=0,
                    timestamp=i/env.CTRL_FREQ,
-                   state=np.hstack([obs[0:3], np.zeros(4), obs[3:15],  np.resize(action, (4))]),
+                   state=np.hstack(
+                       [obs[0:3], np.zeros(4), obs[3:15],  np.resize(action, (4))]),
                    control=np.zeros(12)
                    )
         env.render()
@@ -434,23 +434,30 @@ def run(
         logger.plot()
 
 
-
-
-
-
 if __name__ == "__main__":
     #### Define and parse (optional) arguments for the script ##
-    parser = argparse.ArgumentParser(description='Single agent reinforcement learning experiments script')
-    parser.add_argument('--env',        default=DEFAULT_ENV,      type=str,             choices=['takeoff', 'hover', 'flythrugate', 'tune'], help='Task (default: hover)', metavar='')
-    parser.add_argument('--algo',       default=DEFAULT_ALGO,        type=str,             choices=['a2c', 'ppo', 'sac', 'td3', 'ddpg'],        help='RL agent (default: ppo)', metavar='')
-    parser.add_argument('--obs',        default=DEFAULT_OBS,        type=ObservationType,                                                      help='Observation space (default: kin)', metavar='')
-    parser.add_argument('--act',        default=DEFAULT_ACT,  type=ActionType,                                                           help='Action space (default: one_d_rpm)', metavar='')
-    parser.add_argument('--cpu',        default=DEFAULT_CPU,          type=int,                                                                  help='Number of training environments (default: 1)', metavar='')        
-    parser.add_argument('--steps',        default=DEFAULT_STEPS,          type=int,                                                                  help='Number of training time steps (default: 35000)', metavar='')        
-    parser.add_argument('--output_folder',     default=DEFAULT_OUTPUT_FOLDER, type=str,           help='Folder where to save logs (default: "results")', metavar='')
-    parser.add_argument('--intervallog',     default=DEFAULT_INTEREVAL, type=int,           help='log interval for evaluation', metavar='')
-    parser.add_argument("--eval", action="store_true", help="eval model without training")
-    parser.add_argument('--checkpoint',     default=None, type=str,           help='load checkpoint model (without .zip extention) ', metavar='')
+    parser = argparse.ArgumentParser(
+        description='Single agent reinforcement learning experiments script')
+    parser.add_argument('--env',        default=DEFAULT_ENV,      type=str,             choices=[
+                        'takeoff', 'hover', 'flythrugate', 'tune'], help='Task (default: hover)', metavar='')
+    parser.add_argument('--algo',       default=DEFAULT_ALGO,        type=str,             choices=[
+                        'a2c', 'ppo', 'sac', 'td3', 'ddpg'],        help='RL agent (default: ppo)', metavar='')
+    parser.add_argument('--obs',        default=DEFAULT_OBS,        type=ObservationType,
+                        help='Observation space (default: kin)', metavar='')
+    parser.add_argument('--act',        default=DEFAULT_ACT,  type=ActionType,
+                        help='Action space (default: one_d_rpm)', metavar='')
+    parser.add_argument('--cpu',        default=DEFAULT_CPU,          type=int,
+                        help='Number of training environments (default: 1)', metavar='')
+    parser.add_argument('--steps',        default=DEFAULT_STEPS,          type=int,
+                        help='Number of training time steps (default: 35000)', metavar='')
+    parser.add_argument('--output_folder',     default=DEFAULT_OUTPUT_FOLDER, type=str,
+                        help='Folder where to save logs (default: "results")', metavar='')
+    parser.add_argument('--intervallog',     default=DEFAULT_INTEREVAL,
+                        type=int,           help='log interval for evaluation', metavar='')
+    parser.add_argument("--eval", action="store_true",
+                        help="eval model without training")
+    parser.add_argument('--checkpoint',     default=None, type=str,
+                        help='load checkpoint model (without .zip extention) ', metavar='')
 
     ARGS = parser.parse_args()
 

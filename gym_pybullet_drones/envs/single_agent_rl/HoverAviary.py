@@ -3,22 +3,23 @@ import numpy as np
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.single_agent_rl.BaseSingleAgentAviary import ActionType, ObservationType, BaseSingleAgentAviary
 
+
 class HoverAviary(BaseSingleAgentAviary):
     """Single agent RL problem: hover at position."""
 
     ################################################################################
-    
+
     def __init__(self,
-                 drone_model: DroneModel=DroneModel.CF2X,
+                 drone_model: DroneModel = DroneModel.CF2X,
                  initial_xyzs=None,
                  initial_rpys=None,
-                 physics: Physics=Physics.PYB,
+                 physics: Physics = Physics.PYB,
                  pyb_freq: int = 240,
                  ctrl_freq: int = 240,
                  gui=False,
                  record=False,
-                 obs: ObservationType=ObservationType.KIN,
-                 act: ActionType=ActionType.RPM
+                 obs: ObservationType = ObservationType.KIN,
+                 act: ActionType = ActionType.RPM
                  ):
         """Initialization of a single agent RL environment.
 
@@ -61,7 +62,7 @@ class HoverAviary(BaseSingleAgentAviary):
                          )
 
     ################################################################################
-    
+
     def _computeReward(self):
         """Computes the current reward value.
 
@@ -72,10 +73,11 @@ class HoverAviary(BaseSingleAgentAviary):
 
         """
         state = self._getDroneStateVector(0)
-        return -1 * np.linalg.norm(np.array([0, 0, 1])-state[0:3])**2
+
+        return -1 * np.linalg.norm(np.array([0, 0, 0.2])-state[0:3])**2
 
     ################################################################################
-    
+
     def _computeTerminated(self):
         """Computes the current done value.
 
@@ -89,9 +91,9 @@ class HoverAviary(BaseSingleAgentAviary):
             return True
         else:
             return False
-        
+
     ################################################################################
-    
+
     def _computeTruncated(self):
         """Computes the current truncated value(s).
 
@@ -106,7 +108,7 @@ class HoverAviary(BaseSingleAgentAviary):
         return False
 
     ################################################################################
-    
+
     def _computeInfo(self):
         """Computes the current info dict(s).
 
@@ -118,10 +120,10 @@ class HoverAviary(BaseSingleAgentAviary):
             Dummy value.
 
         """
-        return {"answer": 42} #### Calculated by the Deep Thought supercomputer in 7.5M years
+        return {"answer": 42}  # Calculated by the Deep Thought supercomputer in 7.5M years
 
     ################################################################################
-    
+
     def _clipAndNormalizeState(self,
                                state
                                ):
@@ -138,13 +140,13 @@ class HoverAviary(BaseSingleAgentAviary):
             (20,)-shaped array of floats containing the normalized state of a single drone.
 
         """
-        MAX_LIN_VEL_XY = 3 
+        MAX_LIN_VEL_XY = 3
         MAX_LIN_VEL_Z = 1
 
         MAX_XY = MAX_LIN_VEL_XY*self.EPISODE_LEN_SEC
         MAX_Z = MAX_LIN_VEL_Z*self.EPISODE_LEN_SEC
 
-        MAX_PITCH_ROLL = np.pi # Full range
+        MAX_PITCH_ROLL = np.pi  # Full range
 
         clipped_pos_xy = np.clip(state[0:2], -MAX_XY, MAX_XY)
         clipped_pos_z = np.clip(state[2], 0, MAX_Z)
@@ -164,10 +166,11 @@ class HoverAviary(BaseSingleAgentAviary):
         normalized_pos_xy = clipped_pos_xy / MAX_XY
         normalized_pos_z = clipped_pos_z / MAX_Z
         normalized_rp = clipped_rp / MAX_PITCH_ROLL
-        normalized_y = state[9] / np.pi # No reason to clip
+        normalized_y = state[9] / np.pi  # No reason to clip
         normalized_vel_xy = clipped_vel_xy / MAX_LIN_VEL_XY
         normalized_vel_z = clipped_vel_z / MAX_LIN_VEL_XY
-        normalized_ang_vel = state[13:16]/np.linalg.norm(state[13:16]) if np.linalg.norm(state[13:16]) != 0 else state[13:16]
+        normalized_ang_vel = state[13:16]/np.linalg.norm(
+            state[13:16]) if np.linalg.norm(state[13:16]) != 0 else state[13:16]
 
         norm_and_clipped = np.hstack([normalized_pos_xy,
                                       normalized_pos_z,
@@ -181,9 +184,9 @@ class HoverAviary(BaseSingleAgentAviary):
                                       ]).reshape(20,)
 
         return norm_and_clipped
-    
+
     ################################################################################
-    
+
     def _clipAndNormalizeStateWarning(self,
                                       state,
                                       clipped_pos_xy,
@@ -195,15 +198,20 @@ class HoverAviary(BaseSingleAgentAviary):
         """Debugging printouts associated to `_clipAndNormalizeState`.
 
         Print a warning if values in a state vector is out of the clipping range.
-        
+
         """
-        if not(clipped_pos_xy == np.array(state[0:2])).all():
-            print("[WARNING] it", self.step_counter, "in HoverAviary._clipAndNormalizeState(), clipped xy position [{:.2f} {:.2f}]".format(state[0], state[1]))
-        if not(clipped_pos_z == np.array(state[2])).all():
-            print("[WARNING] it", self.step_counter, "in HoverAviary._clipAndNormalizeState(), clipped z position [{:.2f}]".format(state[2]))
-        if not(clipped_rp == np.array(state[7:9])).all():
-            print("[WARNING] it", self.step_counter, "in HoverAviary._clipAndNormalizeState(), clipped roll/pitch [{:.2f} {:.2f}]".format(state[7], state[8]))
-        if not(clipped_vel_xy == np.array(state[10:12])).all():
-            print("[WARNING] it", self.step_counter, "in HoverAviary._clipAndNormalizeState(), clipped xy velocity [{:.2f} {:.2f}]".format(state[10], state[11]))
-        if not(clipped_vel_z == np.array(state[12])).all():
-            print("[WARNING] it", self.step_counter, "in HoverAviary._clipAndNormalizeState(), clipped z velocity [{:.2f}]".format(state[12]))
+        if not (clipped_pos_xy == np.array(state[0:2])).all():
+            print("[WARNING] it", self.step_counter,
+                  "in HoverAviary._clipAndNormalizeState(), clipped xy position [{:.2f} {:.2f}]".format(state[0], state[1]))
+        if not (clipped_pos_z == np.array(state[2])).all():
+            print("[WARNING] it", self.step_counter,
+                  "in HoverAviary._clipAndNormalizeState(), clipped z position [{:.2f}]".format(state[2]))
+        if not (clipped_rp == np.array(state[7:9])).all():
+            print("[WARNING] it", self.step_counter,
+                  "in HoverAviary._clipAndNormalizeState(), clipped roll/pitch [{:.2f} {:.2f}]".format(state[7], state[8]))
+        if not (clipped_vel_xy == np.array(state[10:12])).all():
+            print("[WARNING] it", self.step_counter,
+                  "in HoverAviary._clipAndNormalizeState(), clipped xy velocity [{:.2f} {:.2f}]".format(state[10], state[11]))
+        if not (clipped_vel_z == np.array(state[12])).all():
+            print("[WARNING] it", self.step_counter,
+                  "in HoverAviary._clipAndNormalizeState(), clipped z velocity [{:.2f}]".format(state[12]))

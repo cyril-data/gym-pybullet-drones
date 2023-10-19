@@ -11,20 +11,20 @@ from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 
 class BaseSingleAgentAviary(BaseAviary):
     """Base single drone environment class for reinforcement learning."""
-    
+
     ################################################################################
 
     def __init__(self,
-                 drone_model: DroneModel=DroneModel.CF2X,
+                 drone_model: DroneModel = DroneModel.CF2X,
                  initial_xyzs=None,
                  initial_rpys=None,
-                 physics: Physics=Physics.PYB,
+                 physics: Physics = Physics.PYB,
                  pyb_freq: int = 240,
                  ctrl_freq: int = 240,
                  gui=False,
                  record=False,
-                 obs: ObservationType=ObservationType.KIN,
-                 act: ActionType=ActionType.RPM
+                 obs: ObservationType = ObservationType.KIN,
+                 act: ActionType = ActionType.RPM
                  ):
         """Initialization of a generic single agent RL environment.
 
@@ -60,14 +60,15 @@ class BaseSingleAgentAviary(BaseAviary):
         vision_attributes = True if obs == ObservationType.RGB else False
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
-        self.EPISODE_LEN_SEC = 5
+        self.EPISODE_LEN_SEC = 15
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.ONE_D_PID]:
-            os.environ['KMP_DUPLICATE_LIB_OK']='True'
+            os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
             if drone_model in [DroneModel.CF2X, DroneModel.CF2P]:
                 self.ctrl = DSLPIDControl(drone_model=DroneModel.CF2X)
             else:
-                print("[ERROR] in BaseSingleAgentAviary.__init()__, no controller is available for the specified drone_model")
+                print(
+                    "[ERROR] in BaseSingleAgentAviary.__init()__, no controller is available for the specified drone_model")
         super().__init__(drone_model=drone_model,
                          num_drones=1,
                          initial_xyzs=initial_xyzs,
@@ -76,9 +77,9 @@ class BaseSingleAgentAviary(BaseAviary):
                          pyb_freq=pyb_freq,
                          ctrl_freq=ctrl_freq,
                          gui=gui,
-                         record=record, 
-                         obstacles=True, # Add obstacles for RGB observations and/or FlyThruGate
-                         user_debug_gui=False, # Remove of RPM sliders from all single agent learning aviaries
+                         record=record,
+                         obstacles=True,  # Add obstacles for RGB observations and/or FlyThruGate
+                         user_debug_gui=False,  # Remove of RPM sliders from all single agent learning aviaries
                          vision_attributes=vision_attributes,
                          )
         #### Set a limit on the maximum target speed ###############
@@ -139,7 +140,7 @@ class BaseSingleAgentAviary(BaseAviary):
             print("[ERROR] in BaseSingleAgentAviary._actionSpace()")
             exit()
         return spaces.Box(low=-1*np.ones(size),
-        # return spaces.Box(low=np.zeros(size),  # Alternative action space, see PR #32
+                          # return spaces.Box(low=np.zeros(size),  # Alternative action space, see PR #32
                           high=np.ones(size),
                           dtype=np.float32
                           )
@@ -175,10 +176,10 @@ class BaseSingleAgentAviary(BaseAviary):
         elif self.ACT_TYPE == ActionType.PID:
             state = self._getDroneStateVector(0)
             next_pos = self._calculateNextStep(
-                    current_position=state[0:3],
-                    destination=action,
-                    step_size=1,
-                )
+                current_position=state[0:3],
+                destination=action,
+                step_size=1,
+            )
             rpm, _, _ = self.ctrl.computeControl(control_timestep=self.CTRL_TIMESTEP,
                                                  cur_pos=state[0:3],
                                                  cur_quat=state[3:7],
@@ -198,9 +199,15 @@ class BaseSingleAgentAviary(BaseAviary):
                                                  cur_quat=state[3:7],
                                                  cur_vel=state[10:13],
                                                  cur_ang_vel=state[13:16],
-                                                 target_pos=state[0:3], # same as the current position
-                                                 target_rpy=np.array([0,0,state[9]]), # keep current yaw
-                                                 target_vel=self.SPEED_LIMIT * np.abs(action[3]) * v_unit_vector # target the desired velocity vector
+                                                 # same as the current position
+                                                 target_pos=state[0:3],
+                                                 # keep current yaw
+                                                 target_rpy=np.array(
+                                                     [0, 0, state[9]]),
+                                                 # target the desired velocity vector
+                                                 target_vel=self.SPEED_LIMIT * \
+                                                 np.abs(action[3]) * \
+                                                 v_unit_vector
                                                  )
             return rpm
         elif self.ACT_TYPE == ActionType.ONE_D_RPM:
@@ -212,7 +219,8 @@ class BaseSingleAgentAviary(BaseAviary):
                                                  cur_quat=state[3:7],
                                                  cur_vel=state[10:13],
                                                  cur_ang_vel=state[13:16],
-                                                 target_pos=state[0:3]+0.1*np.array([0,0,action[0]])
+                                                 target_pos=state[0:3]+0.1 *
+                                                 np.array([0, 0, action[0]])
                                                  )
             return rpm
         else:
@@ -237,21 +245,22 @@ class BaseSingleAgentAviary(BaseAviary):
                               )
         elif self.OBS_TYPE == ObservationType.KIN:
             ############################################################
-            #### OBS OF SIZE 20 (WITH QUATERNION AND RPMS)
-            #### Observation vector ### X        Y        Z       Q1   Q2   Q3   Q4   R       P       Y       VX       VY       VZ       WX       WY       WZ       P0            P1            P2            P3
+            # OBS OF SIZE 20 (WITH QUATERNION AND RPMS)
+            # Observation vector ### X        Y        Z       Q1   Q2   Q3   Q4   R       P       Y       VX       VY       VZ       WX       WY       WZ       P0            P1            P2            P3
             # obs_lower_bound = np.array([-1,      -1,      0,      -1,  -1,  -1,  -1,  -1,     -1,     -1,     -1,      -1,      -1,      -1,      -1,      -1,      -1,           -1,           -1,           -1])
-            # obs_upper_bound = np.array([1,       1,       1,      1,   1,   1,   1,   1,      1,      1,      1,       1,       1,       1,       1,       1,       1,            1,            1,            1])          
+            # obs_upper_bound = np.array([1,       1,       1,      1,   1,   1,   1,   1,      1,      1,      1,       1,       1,       1,       1,       1,       1,            1,            1,            1])
             # return spaces.Box( low=obs_lower_bound, high=obs_upper_bound, dtype=np.float32 )
             ############################################################
-            #### OBS SPACE OF SIZE 12
-            return spaces.Box(low=np.array([-1,-1,0, -1,-1,-1, -1,-1,-1, -1,-1,-1]),
-                              high=np.array([1,1,1, 1,1,1, 1,1,1, 1,1,1]),
+            # OBS SPACE OF SIZE 12
+            return spaces.Box(low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
+                              high=np.array(
+                                  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
                               dtype=np.float32
                               )
             ############################################################
         else:
             print("[ERROR] in BaseSingleAgentAviary._observationSpace()")
-    
+
     ################################################################################
 
     def _computeObs(self):
@@ -264,7 +273,7 @@ class BaseSingleAgentAviary(BaseAviary):
 
         """
         if self.OBS_TYPE == ObservationType.RGB:
-            if self.step_counter%self.IMG_CAPTURE_FREQ == 0: 
+            if self.step_counter % self.IMG_CAPTURE_FREQ == 0:
                 self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0,
                                                                              segmentation=False
                                                                              )
@@ -273,22 +282,24 @@ class BaseSingleAgentAviary(BaseAviary):
                     self._exportImage(img_type=ImageType.RGB,
                                       img_input=self.rgb[0],
                                       path=self.ONBOARD_IMG_PATH,
-                                      frame_num=int(self.step_counter/self.IMG_CAPTURE_FREQ)
+                                      frame_num=int(
+                                          self.step_counter/self.IMG_CAPTURE_FREQ)
                                       )
             return self.rgb[0]
-        elif self.OBS_TYPE == ObservationType.KIN: 
+        elif self.OBS_TYPE == ObservationType.KIN:
             obs = self._clipAndNormalizeState(self._getDroneStateVector(0))
             ############################################################
-            #### OBS OF SIZE 20 (WITH QUATERNION AND RPMS)
+            # OBS OF SIZE 20 (WITH QUATERNION AND RPMS)
             # return obs
             ############################################################
-            #### OBS SPACE OF SIZE 12
-            ret = np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
+            # OBS SPACE OF SIZE 12
+            ret = np.hstack(
+                [obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
             return ret.astype('float32')
             ############################################################
         else:
             print("[ERROR] in BaseSingleAgentAviary._computeObs()")
-    
+
     ################################################################################
 
     def _clipAndNormalizeState(self,
