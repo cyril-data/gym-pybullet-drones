@@ -63,7 +63,7 @@ def run(
     record_video=DEFAULT_RECORD_VIDEO,
     local=True,
     max_t=DEFAULT_MAX_T,
-    lr=None,
+    lr=3e-4,
     policy="sac",
 ):
 
@@ -324,7 +324,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--lr",
-        default=None,
+        default=3e-4,
         type=float,
         help="learning_rate ",
         metavar="",
